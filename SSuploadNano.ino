@@ -6,8 +6,9 @@
 #include <Agentuino.h>                                                              
 #include <DHT.h>                                                                    
 
+
 // pin sensors
-const uint8_t = DHTPIN 5      
+const uint8_t  DHTPIN = 5;
 const uint8_t move_pin = 3;
 const uint8_t rele = 7;   
 
@@ -17,7 +18,6 @@ const uint8_t relation_AmperVolt = 12;
 #define DHTTYPE DHT22                                                              
 DHT dht(DHTPIN, DHTTYPE); 
                                                       
-
 // IP Ivan's home
 static byte mac[] = {0xDE, 0xDD, 0xBE, 0xEF, 0xFE, 0xED};                       
 
@@ -25,7 +25,6 @@ IPAddress ip(192, 168, 0, 95);
 IPAddress ip_dns(192, 168, 1, 1);
 IPAddress ip_gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
-
 
 /*
 // IP Silica shelter
@@ -37,14 +36,13 @@ IPAddress ip_gateway(10, 83, 64, 253);
 IPAddress subnet(255, 255, 255, 0);
 */
 
+uint8_t current = 0; 
+uint8_t tension = 0;
 float humidity = 0;
 float temperature = 0;
-int current = 0; 
-int tension = 0;
 float tension_analog_pin = 0;
-
-
-
+uint16_t status_move = 0;
+int mover = 0;
 
 char result[8];
 
@@ -54,13 +52,11 @@ const char sysName[] PROGMEM       = "1.3.6.1.2.1.1.5.0";
 const char sysLocation[] PROGMEM   = "1.3.6.1.2.1.1.6.0";                           
 const char sysServices[] PROGMEM   = "1.3.6.1.2.1.1.7.0";                           
  
-
 const char snmp_temperature[]     PROGMEM     = "1.3.6.1.3.2016.5.1.0";             
 const char snmp_humidity[]        PROGMEM     = "1.3.6.1.3.2016.5.1.1";             
 const char snmp_current[]        PROGMEM     = "1.3.6.1.3.2016.5.1.2"; 
 const char snmp_tension[]        PROGMEM     = "1.3.6.1.3.2016.5.1.3"; 
 const char snmp_move[]        PROGMEM     = "1.3.6.1.3.2016.5.1.4"; 
-
 
 static char locDescr[35]            = "sSystem Sensing v1.0";              
 static char locContact[25]          = "Silica Networks SA";                         
@@ -72,7 +68,6 @@ uint32_t prevMillis = millis();
 char oid[SNMP_MAX_OID_LEN];
 SNMP_API_STAT_CODES api_status;
 SNMP_ERR_CODES status;
-
 
 
 int deltaCurrent() {
@@ -89,8 +84,6 @@ int deltaCurrent() {
   current_temp = sum / 4;
   return current_temp;
 }
- 
-
 
 void pduReceived() {
   SNMP_PDU pdu;
@@ -234,28 +227,43 @@ void pduReceived() {
   }
   Agentuino.freePdu(&pdu);
 }
- 
+
 
 void setup() {
   pinMode(rele, OUTPUT);
-  pinMode(mover_pin, INPUT);
+  pinMode(move_pin, INPUT);
+
+  
   dht.begin();
   Ethernet.begin(mac, ip, ip_dns, ip_gateway, subnet);
+
+  // Inicio agente SNMP
   api_status = Agentuino.begin();                        
- 
+
+  // Verificación del estado del agente SNMP
   if ( api_status == SNMP_API_STAT_SUCCESS ) {
     Agentuino.onPduReceive(pduReceived);
     delay(10);
     return;
   }
+  
+  // Retraso si el estado no es de éxito
   delay(10);
 }
+
  
 void loop() { 
-  Agentuino.listen();                                      
+  Agentuino.listen();    
+                                    
   if (millis() - prevMillis > 2000) {
-    status_rele = digitalRead(
-   
+    status_move = digitalRead(move_pin);
+    if (status_move == HIGH) {
+      mover = 1;
+    } else  {
+      mover = 0;
+    }
+    
+      
     temperature = dht.readTemperature();
     current = deltaCurrent();
     humidity = dht.readHumidity();
